@@ -9,17 +9,23 @@ SCRAPER = cloudscraper.create_scraper()
 PARSER = etree.HTMLParser()
 TOTAL_DEVIATION = 0.0
 MOVIE_COUNT = 0
+TOTAL_RATING_REQUEST_WAIT_TIME = 0
 
 def ConstructDataLink(element):
     return "https://letterboxd.com" + element.get("data-item-link")
 
 ##
 #takes a rated movie webpage and the rating of movies on the page
+#todo needs verification it's not a timeout page
 #
 def DissectMovies(movieList, rating):
     movieGrid = movieList.cssselect('ul.-p70 li .react-component')
     for movie in movieGrid:
+        global TOTAL_RATING_REQUEST_WAIT_TIME
+        requestStartTime = time.perf_counter()
         avgRating = etree.fromstring(SCRAPER.get(ConstructDataLink(movie)).text[:3456], PARSER).cssselect('meta[name="twitter:data2"]')
+        TOTAL_RATING_REQUEST_WAIT_TIME += (time.perf_counter() - requestStartTime)
+
         if avgRating:
             global TOTAL_DEVIATION
             global MOVIE_COUNT
@@ -35,21 +41,21 @@ def HandlePagination():
 
 
 if __name__ == '__main__':
-    start_time = time.perf_counter()
+    programStartTime = time.perf_counter()
 
     ratings = [.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
 
     for rating in ratings:
-        text = SCRAPER.get("https://letterboxd.com/sarkovos/films/rated/" + str(rating) + "/by/rating/").text
+        ratingStartTime = time.perf_counter()
+        text = SCRAPER.get("https://letterboxd.com/jomimo/films/rated/" + str(rating) + "/by/rating/").text
         html_root  = etree.fromstring(text, PARSER)
         DissectMovies(html_root, rating)
-
-    end_time = time.perf_counter()
-    elapsed_time = end_time - start_time
+        print("runtime for rating " + str(rating) + " is " + str(time.perf_counter() - ratingStartTime))
 
     print(TOTAL_DEVIATION / MOVIE_COUNT)
-
-    print(f"Elapsed time: {elapsed_time:.4f} seconds")
+    print("movie count: " + str(MOVIE_COUNT))
+    print("program runtime:" + str(time.perf_counter() - programStartTime))
+    print("average request wait time for rating pages: " + str(TOTAL_RATING_REQUEST_WAIT_TIME / MOVIE_COUNT))
 
 
 
