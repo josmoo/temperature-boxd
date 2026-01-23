@@ -2,6 +2,8 @@ from lxml import etree
 from lxml.cssselect import CSSSelector
 import cloudscraper
 
+import time
+
 #GLOBAL
 SCRAPER = cloudscraper.create_scraper()
 PARSER = etree.HTMLParser()
@@ -13,12 +15,11 @@ def ConstructDataLink(element):
 
 ##
 #takes a rated movie webpage and the rating of movies on the page
-# TODO: desperately needs to be optimized. obvious first optimization is to not parse the entire html for just a rating
+#
 def DissectMovies(movieList, rating):
     movieGrid = movieList.cssselect('ul.-p70 li .react-component')
-    movieLinks = list(map(ConstructDataLink, movieGrid))
-    for movieLink in movieLinks:
-        avgRating = etree.fromstring(SCRAPER.get(movieLink).text, PARSER).cssselect('meta[name="twitter:data2"]')
+    for movie in movieGrid:
+        avgRating = etree.fromstring(SCRAPER.get(ConstructDataLink(movie)).text[:3456], PARSER).cssselect('meta[name="twitter:data2"]')
         if avgRating:
             global TOTAL_DEVIATION
             global MOVIE_COUNT
@@ -27,8 +28,6 @@ def DissectMovies(movieList, rating):
 
         else:
             print("no one watches this shit movie sorry")
-
-
     return
 
 def HandlePagination():
@@ -36,13 +35,23 @@ def HandlePagination():
 
 
 if __name__ == '__main__':
+    start_time = time.perf_counter()
 
     ratings = [.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
 
     for rating in ratings:
-        text = SCRAPER.get("https://letterboxd.com/jomimo/films/rated/" + str(rating) + "/by/rating/").text
+        text = SCRAPER.get("https://letterboxd.com/sarkovos/films/rated/" + str(rating) + "/by/rating/").text
         html_root  = etree.fromstring(text, PARSER)
         DissectMovies(html_root, rating)
 
-print(TOTAL_DEVIATION / MOVIE_COUNT)
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+
+    print(TOTAL_DEVIATION / MOVIE_COUNT)
+
+    print(f"Elapsed time: {elapsed_time:.4f} seconds")
+
+
+
+
 
