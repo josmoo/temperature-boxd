@@ -3,43 +3,20 @@ from lxml.cssselect import CSSSelector
 import cloudscraper
 import asyncio
 
-import time
-from pip import _internal
-_internal.main(['list'])
-
-#GLOBAL
+#GLOBAL VARIABLES
 SCRAPER = cloudscraper.create_scraper(
     interpreter='js2py',        # Best compatibility for v3 challenges
-
-    # # Enhanced bypass features
-    # enable_tls_fingerprinting=True,
-    # enable_tls_rotation=True,
-    # enable_anti_detection=True,
-    # enable_enhanced_spoofing=True,
-    # spoofing_consistency_level='medium',
-    # enable_intelligent_challenges=True,
-    # enable_adaptive_timing=True,
-    # behavior_profile='focused',
-    # enable_ml_optimization=True,
-    # enable_enhanced_error_handling=True,
-
     # Stealth mode
     enable_stealth=True,
     stealth_options={
-        'min_delay': .2,  # Minimum delay between requests
-        'max_delay': 2.0,  # Maximum delay between requests
+        'min_delay': .1,  # Minimum delay between requests
+        'max_delay': 1.2,  # Maximum delay between requests
         'human_like_delays': True,  # Use human-like delay patterns
         'randomize_headers': True,  # Randomize request headers
         'browser_quirks': True,  # Enable browser-specific quirks
         'simulate_viewport': True,  # Simulate viewport changes
         'behavioral_patterns': True  # Use behavioral pattern simulation
     },
-
-    # # Session management
-    # session_refresh_interval=3600,
-    # auto_refresh_on_403=True,
-    # max_403_retries=3,
-
     browser='chrome'
 )
 SCRAPER._max_request_depth = 500 #big uh oh no no bandaid fix todo fix
@@ -48,74 +25,91 @@ TOTAL_DEVIATION = 0.0
 MOVIE_COUNT = 0
 TOTAL_RATING_REQUEST_WAIT_TIME = 0
 
-def getAvgRating(element):
-    rating = etree.fromstring(SCRAPER.get("https://letterboxd.com" + element.get("data-item-link")).text[:3456], PARSER).cssselect('meta[name="twitter:data2"]')
-    return rating
+###
+# retrieves and dissects the average rating for the given movie
+#
+# @param movie  an HTML list item of the movie to get the avgRating for
+# @return       returns the average rating as a float, or returns None if the movie does not have an average rating
+def getAvgRating(movie):
+    ratingPairList = (etree.fromstring(SCRAPER.get("https://letterboxd.com" + movie.get("data-item-link")).text[:3456], PARSER)
+                .cssselect('meta[name="twitter:data2"]'))
 
-async def asyncFetch(element):
+    # handle films without an average rating
+    if not ratingPairList:
+        return None
+
+    return float(ratingPairList[0].get('content')[:4])
+
+###
+# an asynchronous wrapper for getAvgRating
+#
+# @param movie      an HTML list item
+# @return awaitable
+async def asyncFetch(movie):
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, getAvgRating, element)
+    return await loop.run_in_executor(None, getAvgRating, movie)
 
-def processMovieTotalDeviation(movie, rating):
+###
+# updates the global total deviation
+#
+# @param avgRating
+# @param userRating
+# @return void
+def processMovieTotalDeviation(avgRating, userRating):
     global TOTAL_DEVIATION
-    tijo = float(movie[0].get('content')[:4])
-    print(tijo)
-    TOTAL_DEVIATION += abs(rating - tijo)
+    TOTAL_DEVIATION += abs(userRating - avgRating)
     return
 
+###
+# increments the global movie count
+#
+# @param void
+# @return void
 def incrementMovieCount():
     global MOVIE_COUNT
     MOVIE_COUNT += 1
     return
 
-##
-#takes a rated movie webpage and the rating of movies on the page
-#todo needs verification it's not a timeout page
+### todo need to verify that the webpage is not a timeout page. although have not gotten a single timeout webpage now with updated cloudflare circumvention
+# For each movie, adds the count and absolute deviation to MOVIE_COUNT and TOTAL_DEVIATION respectively
 #
-async def DissectMovies(movieList, rating):
-    movieGrid = movieList.cssselect('ul.-p70 li .react-component')
-    results = await asyncio.gather(*(asyncFetch(movie) for movie in movieGrid))
-    for r in results:
-        if r:
+# @param htmlRoot    the webpage that contains the moviegrid to dissect
+# @param rating      the user's rating for all movies on htmlRoot
+# @return void       instead just modifies the global variables MOVIE_COUNT and TOTAL_DEVIATION
+async def DissectMovies(htmlRoot, userRating):
+    movieGrid = htmlRoot.cssselect('ul.-p70 li .react-component')
+    avgRatings = await asyncio.gather(*(asyncFetch(movie) for movie in movieGrid))
+    for avgRating in avgRatings:
+        if avgRating:
             incrementMovieCount()
-            processMovieTotalDeviation(r, rating)
-    # for movie in movieGrid:
-    #     global TOTAL_RATING_REQUEST_WAIT_TIME
-    #     requestStartTime = time.perf_counter()
-    #     avgRating = getAvgRating(movie)
-    #     TOTAL_RATING_REQUEST_WAIT_TIME += (time.perf_counter() - requestStartTime)
-    #
-    #     if avgRating:
-    #         global TOTAL_DEVIATION
-    #         global MOVIE_COUNT
-    #         TOTAL_DEVIATION += abs(rating - float(avgRating[0].get('content')[:4]))
-    #         MOVIE_COUNT += 1
-    #
-    #     else:
-    #         print("no one watches this shit movie sorry")
+            processMovieTotalDeviation(avgRating, userRating)
     return
 
-def HandlePagination():
-    return
+def HandlePagination(htmlRoot):
+
+    return False
 
 def main():
     ratings = [.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
+    user = "jomimo"
 
     for rating in ratings:
-        ratingStartTime = time.perf_counter()
-        text = SCRAPER.get("https://letterboxd.com/ralphpolojames/films/rated/" + str(rating) + "/by/rating/").text
-        html_root = etree.fromstring(text, PARSER)
-        asyncio.run(DissectMovies(html_root, rating))
-        print("runtime for rating " + str(rating) + " is " + str(time.perf_counter() - ratingStartTime))
+        pageNo = 1
+        ratingBaseUrl = "https://letterboxd.com/" + user + "/films/rated/" + str(rating) + "/by/rating/page/"
+
+        #god forbid a language have a do while loop lmfao
+        htmlRoot = etree.fromstring(SCRAPER.get(ratingBaseUrl + str(pageNo)).text, PARSER)
+        asyncio.run(DissectMovies(htmlRoot, rating))
+        while(HandlePagination(htmlRoot)):
+            pageNo += 1
+            htmlRoot = etree.fromstring(SCRAPER.get(ratingBaseUrl + str(pageNo)).text, PARSER)
+            asyncio.run(DissectMovies(htmlRoot, rating))
+
     return
 
 if __name__ == '__main__':
-    programStartTime = time.perf_counter()
 
     main()
     print(TOTAL_DEVIATION)
-    print(MOVIE_COUNT)
     print(TOTAL_DEVIATION / MOVIE_COUNT)
     print("movie count: " + str(MOVIE_COUNT))
-    print("program runtime:" + str(time.perf_counter() - programStartTime))
-    print("average request wait time for rating pages: " + str(TOTAL_RATING_REQUEST_WAIT_TIME / MOVIE_COUNT))
