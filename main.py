@@ -3,27 +3,27 @@ from lxml.cssselect import CSSSelector
 import cloudscraper
 import asyncio
 
-#GLOBAL VARIABLES
+########
+#GLOBAL#
+########
+TOTAL_DEVIATION = 0.0
+MOVIE_COUNT = 0
+PARSER = etree.HTMLParser()
 SCRAPER = cloudscraper.create_scraper(
-    interpreter='js2py',        # Best compatibility for v3 challenges
-    # Stealth mode
+    interpreter='js2py',
     enable_stealth=True,
     stealth_options={
-        'min_delay': .1,  # Minimum delay between requests
-        'max_delay': 1.2,  # Maximum delay between requests
-        'human_like_delays': True,  # Use human-like delay patterns
-        'randomize_headers': True,  # Randomize request headers
-        'browser_quirks': True,  # Enable browser-specific quirks
-        'simulate_viewport': True,  # Simulate viewport changes
-        'behavioral_patterns': True  # Use behavioral pattern simulation
+        'min_delay': .05,
+        'max_delay': .35,
+        'human_like_delays': True,
+        'randomize_headers': True,
+        'browser_quirks': True,
+        'simulate_viewport': True,
+        'behavioral_patterns': True
     },
     browser='chrome'
 )
 SCRAPER._max_request_depth = 500 #big uh oh no no bandaid fix todo fix
-PARSER = etree.HTMLParser()
-TOTAL_DEVIATION = 0.0
-MOVIE_COUNT = 0
-TOTAL_RATING_REQUEST_WAIT_TIME = 0
 
 ###
 # retrieves and dissects the average rating for the given movie
@@ -43,8 +43,8 @@ def getAvgRating(movie):
 ###
 # an asynchronous wrapper for getAvgRating
 #
-# @param movie      an HTML list item
-# @return awaitable
+# @param movie  an HTML list item
+# @return       awaitable that will contain the avgRating or None
 async def asyncFetch(movie):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, getAvgRating, movie)
@@ -76,7 +76,7 @@ def incrementMovieCount():
 # @param htmlRoot    the webpage that contains the moviegrid to dissect
 # @param rating      the user's rating for all movies on htmlRoot
 # @return void       instead just modifies the global variables MOVIE_COUNT and TOTAL_DEVIATION
-async def DissectMovies(htmlRoot, userRating):
+async def dissectMovies(htmlRoot, userRating):
     movieGrid = htmlRoot.cssselect('ul.-p70 li .react-component')
     avgRatings = await asyncio.gather(*(asyncFetch(movie) for movie in movieGrid))
     for avgRating in avgRatings:
@@ -85,8 +85,16 @@ async def DissectMovies(htmlRoot, userRating):
             processMovieTotalDeviation(avgRating, userRating)
     return
 
-def HandlePagination(htmlRoot):
-
+###
+# Checks if there is another page of movies to rate
+#
+# @param htmlRoot   the current page of movies
+# @return bool      true if there is another page of movies to rate, false if there isn't
+def handlePagination(htmlRoot):
+    cssQueryResults = htmlRoot.cssselect('.pagination > .paginate-nextprev > .next')
+    if(cssQueryResults):
+        if(cssQueryResults[0].get('href')):
+            return True
     return False
 
 def main():
@@ -99,12 +107,11 @@ def main():
 
         #god forbid a language have a do while loop lmfao
         htmlRoot = etree.fromstring(SCRAPER.get(ratingBaseUrl + str(pageNo)).text, PARSER)
-        asyncio.run(DissectMovies(htmlRoot, rating))
-        while(HandlePagination(htmlRoot)):
+        asyncio.run(dissectMovies(htmlRoot, rating))
+        while(handlePagination(htmlRoot)):
             pageNo += 1
             htmlRoot = etree.fromstring(SCRAPER.get(ratingBaseUrl + str(pageNo)).text, PARSER)
-            asyncio.run(DissectMovies(htmlRoot, rating))
-
+            asyncio.run(dissectMovies(htmlRoot, rating))
     return
 
 if __name__ == '__main__':
