@@ -3,6 +3,10 @@ from lxml.cssselect import CSSSelector
 import cloudscraper
 import asyncio
 
+import dearpygui.dearpygui as dpg
+
+dpg.create_context()
+
 ########
 #GLOBAL#
 ########
@@ -24,6 +28,41 @@ SCRAPER = cloudscraper.create_scraper(
     browser='chrome'
 )
 SCRAPER._max_request_depth = 500 #big uh oh no no bandaid fix todo fix
+
+def getRatedMovieCount(user):
+    return int((etree.fromstring(SCRAPER.get("https://letterboxd.com/" + user).text, PARSER)).cssselect('.cols-2 > .wide-sidebar > .ratings-histogram-chart > .all-link')[0].text)
+
+def updateProgressBar(ratedMovies):
+    dpg.set_value("Progress Bar",   MOVIE_COUNT / ratedMovies)
+    print(MOVIE_COUNT / ratedMovies)
+    return
+
+def calculateTemperature():
+    user = dpg.get_value("Username Field")
+    ratedMovies = getRatedMovieCount(user)
+    print(ratedMovies)
+    dpg.add_progress_bar(tag="Progress Bar", default_value=0.0, parent="Primary Window")
+
+    ratings = [.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
+
+    for rating in ratings:
+        print(rating)
+        pageNo = 1
+        ratingBaseUrl = "https://letterboxd.com/" + user + "/films/rated/" + str(rating) + "/by/rating/page/"
+
+        # god forbid a language have a do while loop lmfao
+        htmlRoot = etree.fromstring(SCRAPER.get(ratingBaseUrl + str(pageNo)).text, PARSER)
+        asyncio.run(dissectMovies(htmlRoot, rating))
+        updateProgressBar(ratedMovies)
+        while (handlePagination(htmlRoot)):
+            pageNo += 1
+            htmlRoot = etree.fromstring(SCRAPER.get(ratingBaseUrl + str(pageNo)).text, PARSER)
+            asyncio.run(dissectMovies(htmlRoot, rating))
+            updateProgressBar(ratedMovies)
+
+    dpg.add_text("Your mean average deviation is " + str(TOTAL_DEVIATION / MOVIE_COUNT),
+                 parent="Primary Window")
+    return
 
 ###
 # retrieves and dissects the average rating for the given movie
@@ -98,25 +137,25 @@ def handlePagination(htmlRoot):
     return False
 
 def main():
-    ratings = [.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
-    user = "jomimo"
+    with dpg.window(tag="Primary Window"):
+        dpg.add_text("Enter your Letterboxd username:")
+        dpg.add_input_text(tag="Username Field",
+                           hint="username",
+                           no_spaces=True,
+                           on_enter=True, callback=calculateTemperature)
+        dpg.add_button(label="Calculate temperature", callback=calculateTemperature)
 
-    for rating in ratings:
-        pageNo = 1
-        ratingBaseUrl = "https://letterboxd.com/" + user + "/films/rated/" + str(rating) + "/by/rating/page/"
-
-        #god forbid a language have a do while loop lmfao
-        htmlRoot = etree.fromstring(SCRAPER.get(ratingBaseUrl + str(pageNo)).text, PARSER)
-        asyncio.run(dissectMovies(htmlRoot, rating))
-        while(handlePagination(htmlRoot)):
-            pageNo += 1
-            htmlRoot = etree.fromstring(SCRAPER.get(ratingBaseUrl + str(pageNo)).text, PARSER)
-            asyncio.run(dissectMovies(htmlRoot, rating))
+    dpg.create_viewport(title="Temperature Boxd",
+                        width=400, height=200,
+                        small_icon="./img/temperatureBoxdFavicon.ico",
+                        large_icon="./img/temperatureBoxdFavicon.ico")
+    dpg.setup_dearpygui()
+    dpg.show_viewport()
+    dpg.set_primary_window("Primary Window", True)
+    dpg.start_dearpygui()
+    dpg.destroy_context()
     return
 
 if __name__ == '__main__':
 
     main()
-    print(TOTAL_DEVIATION)
-    print(TOTAL_DEVIATION / MOVIE_COUNT)
-    print("movie count: " + str(MOVIE_COUNT))
