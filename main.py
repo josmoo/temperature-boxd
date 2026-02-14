@@ -30,23 +30,20 @@ SCRAPER = cloudscraper.create_scraper(
 SCRAPER._max_request_depth = 500 #big uh oh no no bandaid fix todo fix
 
 def getRatedMovieCount(user):
-    return int((etree.fromstring(SCRAPER.get("https://letterboxd.com/" + user).text, PARSER)).cssselect('.cols-2 > .wide-sidebar > .ratings-histogram-chart > .all-link')[0].text)
+    return int((etree.fromstring(SCRAPER.get("https://letterboxd.com/" + user).text, PARSER)).cssselect('.cols-2 > .wide-sidebar > .ratings-histogram-chart > .all-link')[0].text.replace(',', ''))
 
 def updateProgressBar(ratedMovies):
     dpg.set_value("Progress Bar",   MOVIE_COUNT / ratedMovies)
-    print(MOVIE_COUNT / ratedMovies)
     return
 
 def calculateTemperature():
     user = dpg.get_value("Username Field")
     ratedMovies = getRatedMovieCount(user)
-    print(ratedMovies)
     dpg.add_progress_bar(tag="Progress Bar", default_value=0.0, parent="Primary Window")
 
     ratings = [.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
 
     for rating in ratings:
-        print(rating)
         pageNo = 1
         ratingBaseUrl = "https://letterboxd.com/" + user + "/films/rated/" + str(rating) + "/by/rating/page/"
 
