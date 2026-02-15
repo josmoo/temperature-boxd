@@ -30,15 +30,30 @@ SCRAPER = cloudscraper.create_scraper(
 )
 SCRAPER._max_request_depth = 500 #big uh oh no no bandaid fix todo fix
 
+###
+# gets the total number of movies the user has rated
+#
+# @param user
+# @return int
 def getRatedMovieCount(user):
     return int((etree.fromstring(SCRAPER.get("https://letterboxd.com/" + user).text, PARSER)).cssselect('.cols-2 > .wide-sidebar > .ratings-histogram-chart > .all-link')[0].text.replace(',', ''))
 
+###
+# updates progress bar UI object
+#
+# @param ratedMovies    the amount of movies we have calculated the MAD for so far
+# @return void
 def updateProgressBar(ratedMovies):
     progress = MOVIE_COUNT / ratedMovies
     dpg.set_value("Progress Bar",   progress)
     dpg.configure_item("Progress Bar", overlay=f"{100*progress:.2f}%")
     return
 
+###
+# the real "main" function. takes the letterboxd username from the UI field and collects the MAD for each movie,
+#   and displays progress and results to UI
+#
+# @return void
 def calculateTemperature():
     user = dpg.get_value("Username Field")
     ratedMovies = getRatedMovieCount(user)
