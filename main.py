@@ -6,10 +6,11 @@ import asyncio
 import dearpygui.dearpygui as dpg
 
 dpg.create_context()
-
+dpg.set_global_font_scale(1.6)
 ########
 #GLOBAL#
 ########
+CONTENT_WIDTH = 344
 TOTAL_DEVIATION = 0.0
 MOVIE_COUNT = 0
 PARSER = etree.HTMLParser()
@@ -33,13 +34,17 @@ def getRatedMovieCount(user):
     return int((etree.fromstring(SCRAPER.get("https://letterboxd.com/" + user).text, PARSER)).cssselect('.cols-2 > .wide-sidebar > .ratings-histogram-chart > .all-link')[0].text.replace(',', ''))
 
 def updateProgressBar(ratedMovies):
-    dpg.set_value("Progress Bar",   MOVIE_COUNT / ratedMovies)
+    progress = MOVIE_COUNT / ratedMovies
+    dpg.set_value("Progress Bar",   progress)
+    dpg.configure_item("Progress Bar", overlay=f"{100*progress:.2f}%")
     return
 
 def calculateTemperature():
     user = dpg.get_value("Username Field")
     ratedMovies = getRatedMovieCount(user)
-    dpg.add_progress_bar(tag="Progress Bar", default_value=0.0, parent="Primary Window")
+    dpg.add_progress_bar(tag="Progress Bar", default_value=0.0, overlay="0%",
+                         width=344,
+                         parent="Primary Window")
 
     ratings = [.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
 
@@ -57,7 +62,7 @@ def calculateTemperature():
             asyncio.run(dissectMovies(htmlRoot, rating))
             updateProgressBar(ratedMovies)
 
-    dpg.add_text("Your mean average deviation is " + str(TOTAL_DEVIATION / MOVIE_COUNT),
+    dpg.add_text("Your mean average deviation is:\n" + str(TOTAL_DEVIATION / MOVIE_COUNT),
                  parent="Primary Window")
     return
 
@@ -138,12 +143,13 @@ def main():
         dpg.add_text("Enter your Letterboxd username:")
         dpg.add_input_text(tag="Username Field",
                            hint="username",
+                           width=CONTENT_WIDTH,
                            no_spaces=True,
                            on_enter=True, callback=calculateTemperature)
         dpg.add_button(label="Calculate temperature", callback=calculateTemperature)
 
     dpg.create_viewport(title="Temperature Boxd",
-                        width=400, height=200,
+                        width=384, height=256, resizable= False,
                         small_icon="./img/temperatureBoxdFavicon.ico",
                         large_icon="./img/temperatureBoxdFavicon.ico")
     dpg.setup_dearpygui()
