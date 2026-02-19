@@ -30,6 +30,11 @@ SCRAPER = cloudscraper.create_scraper(
 )
 SCRAPER._max_request_depth = 500 #big uh oh no no bandaid fix todo fix
 
+class UsernameNotFound(Exception):
+    def __init__(self, username):
+        super.__init__("Username: " + username + " not found")
+        self.username = username
+
 ###
 # gets the total number of movies the user has rated
 #
@@ -56,11 +61,12 @@ def updateProgressBar(ratedMovies):
 # @return void
 def calculateTemperature():
     user = dpg.get_value("Username Field")
-    ratedMovies = getRatedMovieCount(user)
-    dpg.add_progress_bar(tag="Progress Bar", default_value=0.0, overlay="0%",
-                         width=344,
-                         parent="Primary Window")
+    try:
+        ratedMovies = getRatedMovieCount(user)
+    except UsernameNotFound:
+        return
 
+    dpg.show_item("Progress Bar")
     ratings = [.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
 
     for rating in ratings:
@@ -77,8 +83,8 @@ def calculateTemperature():
             asyncio.run(dissectMovies(htmlRoot, rating))
             updateProgressBar(ratedMovies)
 
-    dpg.add_text("Your mean average deviation is:\n" + str(TOTAL_DEVIATION / MOVIE_COUNT),
-                 parent="Primary Window")
+    dpg.set_value("MAD Text", "Your mean average deviation is:\n" + str(TOTAL_DEVIATION / MOVIE_COUNT))
+    dpg.show_item("MAD Text")
     return
 
 ###
@@ -161,10 +167,20 @@ def main():
                            width=CONTENT_WIDTH,
                            no_spaces=True,
                            on_enter=True, callback=calculateTemperature)
-        dpg.add_button(label="Calculate temperature", callback=calculateTemperature)
+        dpg.add_button(label="Calculate temperature",
+                       callback=calculateTemperature)
+        dpg.add_progress_bar(tag="Progress Bar",
+                             default_value=0.0,
+                             overlay="0%",
+                             width=344,
+                             parent="Primary Window",
+                             show=False)
+        dpg.add_text("",
+                     tag ="MAD Text",
+                     show=False)
 
     dpg.create_viewport(title="Temperature Boxd",
-                        width=384, height=256, resizable= False,
+                        width=360, height=256, resizable= False,
                         small_icon="./img/temperatureBoxdFavicon.ico",
                         large_icon="./img/temperatureBoxdFavicon.ico")
     dpg.setup_dearpygui()
