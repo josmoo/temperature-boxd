@@ -30,9 +30,9 @@ SCRAPER = cloudscraper.create_scraper(
 )
 SCRAPER._max_request_depth = 500 #big uh oh no no bandaid fix todo fix
 
-class UsernameNotFound(Exception):
+class RatingsNotFound(Exception):
     def __init__(self, username):
-        super.__init__("Username: " + username + " not found")
+        super.__init__("Could not find any move ratings for: " + username)
         self.username = username
 
 ###
@@ -40,8 +40,12 @@ class UsernameNotFound(Exception):
 #
 # @param user
 # @return int
+# @raise RatingsNotFound
 def getRatedMovieCount(user):
-    return int((etree.fromstring(SCRAPER.get("https://letterboxd.com/" + user).text, PARSER)).cssselect('.cols-2 > .wide-sidebar > .ratings-histogram-chart > .all-link')[0].text.replace(',', ''))
+    abc = (etree.fromstring(SCRAPER.get("https://letterboxd.com/" + user).text, PARSER)).cssselect('.cols-2 > .wide-sidebar > .ratings-histogram-chart > .all-link')
+    if(abc):
+        return int(abc[0].text.replace(',', ''))
+    raise RatingsNotFound(user)
 
 ###
 # updates progress bar UI object
@@ -63,7 +67,7 @@ def calculateTemperature():
     user = dpg.get_value("Username Field")
     try:
         ratedMovies = getRatedMovieCount(user)
-    except UsernameNotFound:
+    except RatingsNotFound:
         return
 
     dpg.show_item("Progress Bar")
