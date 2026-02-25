@@ -42,9 +42,9 @@ class RatingsNotFound(Exception):
 # @return int
 # @raise RatingsNotFound
 def getRatedMovieCount(user):
-    abc = (etree.fromstring(SCRAPER.get("https://letterboxd.com/" + user).text, PARSER)).cssselect('.cols-2 > .wide-sidebar > .ratings-histogram-chart > .all-link')
-    if(abc):
-        return int(abc[0].text.replace(',', ''))
+    numberOfRatedMovies = (etree.fromstring(SCRAPER.get("https://letterboxd.com/" + user).text, PARSER)).cssselect('.cols-2 > .wide-sidebar > .ratings-histogram-chart > .all-link')
+    if(numberOfRatedMovies):
+        return int(numberOfRatedMovies[0].text.replace(',', ''))
     raise RatingsNotFound(user)
 
 ###
@@ -59,6 +59,19 @@ def updateProgressBar(ratedMovies):
     return
 
 ###
+# cleans values and restores them to default. gives application a "fresh start"
+#
+def cleanValues():
+    dpg.set_value("Progress Bar",   0)
+    dpg.configure_item("Progress Bar", overlay="0%")
+    dpg.show_item("Progress Bar")
+    dpg.set_value("MAD Text", "")
+    global TOTAL_DEVIATION
+    global MOVIE_COUNT
+    TOTAL_DEVIATION = 0.00
+    MOVIE_COUNT = 0
+
+###
 # the real "main" function. takes the letterboxd username from the UI field and collects the MAD for each movie,
 #   and displays progress and results to UI
 #
@@ -70,7 +83,8 @@ def calculateTemperature():
     except RatingsNotFound:
         return
 
-    dpg.show_item("Progress Bar")
+    cleanValues()
+
     ratings = [.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
 
     for rating in ratings:
