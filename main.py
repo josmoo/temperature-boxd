@@ -32,7 +32,7 @@ SCRAPER._max_request_depth = 500 #big uh oh no no bandaid fix todo fix
 
 class RatingsNotFound(Exception):
     def __init__(self, username):
-        super.__init__("Could not find any move ratings for: " + username)
+        super().__init__("Could not find any movie ratings for: " + username)
         self.username = username
 
 ###
@@ -80,7 +80,8 @@ def calculateTemperature():
     user = dpg.get_value("Username Field")
     try:
         ratedMovies = getRatedMovieCount(user)
-    except RatingsNotFound:
+    except RatingsNotFound as e:
+        dpg.set_value("MAD Text", e)
         return
 
     cleanValues()
@@ -102,7 +103,6 @@ def calculateTemperature():
             updateProgressBar(ratedMovies)
 
     dpg.set_value("MAD Text", "Your mean average deviation is:\n" + str(TOTAL_DEVIATION / MOVIE_COUNT))
-    dpg.show_item("MAD Text")
     return
 
 ###
@@ -195,7 +195,8 @@ def main():
                              show=False)
         dpg.add_text("",
                      tag ="MAD Text",
-                     show=False)
+                     show=True,
+                     wrap=344)
 
     dpg.create_viewport(title="Temperature Boxd",
                         width=360, height=256, resizable= False,
