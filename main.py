@@ -10,7 +10,8 @@ dpg.set_global_font_scale(1.6)
 ########
 #GLOBAL#
 ########
-CONTENT_WIDTH = 344
+WINDOW_WIDTH = 360
+WINDOW_HEIGHT = 256
 TOTAL_DEVIATION = 0.0
 MOVIE_COUNT = 0
 PARSER = etree.HTMLParser()
@@ -182,7 +183,7 @@ def main():
         dpg.add_text("Enter your Letterboxd username:")
         dpg.add_input_text(tag="Username Field",
                            hint="username",
-                           width=CONTENT_WIDTH,
+                           width=int(WINDOW_WIDTH*.95),
                            no_spaces=True,
                            on_enter=True, callback=calculateTemperature)
         dpg.add_button(label="Calculate temperature",
@@ -190,16 +191,16 @@ def main():
         dpg.add_progress_bar(tag="Progress Bar",
                              default_value=0.0,
                              overlay="0%",
-                             width=344,
+                             width=int(WINDOW_WIDTH*.95),
                              parent="Primary Window",
                              show=False)
         dpg.add_text("",
                      tag ="MAD Text",
                      show=True,
-                     wrap=344)
+                     wrap=int(WINDOW_WIDTH*.95))
 
     dpg.create_viewport(title="Temperature Boxd",
-                        width=360, height=256, resizable= False,
+                        width=WINDOW_WIDTH, height=WINDOW_HEIGHT, resizable= False,
                         small_icon="./img/temperatureBoxdFavicon.ico",
                         large_icon="./img/temperatureBoxdFavicon.ico")
     dpg.setup_dearpygui()
